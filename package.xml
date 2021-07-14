@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>scoped_roslaunch</name>
+  <version>1.0.0</version>
+  <description>Adds default='scope' and default='parent' options to &lt;machine&gt; tag in roslaunch. These options limit the scope of the defined machine to the current or parent scope.</description>
+
+  <author email="peckama2@fel.cvut.cz">Martin Pecka</author>
+  <maintainer email="peckama2@fel.cvut.cz">Martin Pecka</maintainer>
+
+  <license>BSD</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <exec_depend>roslaunch</exec_depend>
+</package>

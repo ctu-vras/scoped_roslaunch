@@ -1,0 +1,102 @@
+#!/usr/bin/env python
+
+# This file overrides the system-installed /opt/ros/melodic/bin/roslaunch to add a not-yet merged
+# feature to it.
+# The feature is https://github.com/ros/ros_comm/pull/2059 - fixing the default="true" argument of
+# <machine> tag to be really limited only to the scope in which the machine is defined. Wiki docs
+# say it behaves like this, but https://github.com/ros/ros_comm/issues/1884 proves that it does not.
+# To use the new feature, define machines with default="scope".
+# This package also adds default="parent", which means that the machine is set as default in the
+# parent scope. This is useful e.g. when you want to have one file with definitions of all machines
+# and include this file in places where you want to use the machines.
+
+from copy import deepcopy
+
+import roslaunch
+import roslaunch.loader
+from roslaunch.xmlloader import XmlLoader
+
+roslaunch.xmlloader._is_default = {'true': True, 'scope': False, 'parent': False, 'false': False, 'never': False }
+roslaunch.xmlloader._assignable = {'true': True, 'scope': True, 'parent': True, 'false': True, 'never': False }
+# maps machine 'default' attribute to whether this sets the default_machine in
+# the loader context
+roslaunch.xmlloader._is_context_default = {'true': True, 'scope': True, 'parent': True, 'false': False, 'never': False }
+
+orig_node_tag = XmlLoader._node_tag
+
+
+def patched_node_tag(self, tag, context, ros_config, default_machine, *args, **kwargs):
+    result = orig_node_tag(self, tag, context, ros_config, default_machine, *args, **kwargs)
+    if isinstance(result, roslaunch.Node):
+        machine, = self.opt_attrs(tag, context, ('machine',))
+        if not machine:
+            if context.default_machine:
+                machine = context.default_machine.name
+            elif default_machine:
+                machine = default_machine.name
+        result.machine_name = machine
+    return result
+
+
+XmlLoader._node_tag = patched_node_tag
+
+orig_machine_tag = XmlLoader._machine_tag
+
+
+def patched_machine_tag(self, tag, context, *args, **kwargs):
+    m, is_default = orig_machine_tag(self, tag, context, *args, **kwargs)
+    default, = self.opt_attrs(tag, context, ('default',))
+    default = (default or 'false').lower()
+
+    try:
+        is_context_default = roslaunch.xmlloader._is_context_default[default]
+    except KeyError as e:
+        raise roslaunch.xmlloader.XmlParseException("Invalid value for 'attribute': %s" % default)
+
+    if is_context_default:
+        if default == 'parent':
+            context.parent.default_machine = m
+        else:
+            context.default_machine = m
+
+    return m, is_default
+
+
+XmlLoader._machine_tag = patched_machine_tag
+
+orig_loader_context_init = roslaunch.loader.LoaderContext.__init__
+
+
+def patched_loader_context_init(self, *args, **kwargs):
+    default_machine = None
+    if 'default_machine' in kwargs:
+        default_machine = kwargs['default_machine']
+        del kwargs['default_machine']
+    orig_loader_context_init(self, *args, **kwargs)
+    self.default_machine = default_machine
+
+
+roslaunch.loader.LoaderContext.__init__ = patched_loader_context_init
+
+
+def patched_loader_context_child(self, ns):
+    if ns:
+        if ns[0] == '/':  # global (discouraged)
+            child_ns = ns
+        elif ns == roslaunch.loader.PRIV_NAME:  # ~name
+            # private names can only be scoped privately or globally
+            child_ns = roslaunch.loader.PRIV_NAME
+        else:
+            child_ns = roslaunch.loader.ns_join(self.ns, ns)
+    else:
+        child_ns = self.ns
+    return roslaunch.loader.LoaderContext(child_ns, self.filename, parent=self,
+                                          params=self.params, env_args=self.env_args[:],
+                                          resolve_dict=deepcopy(self.resolve_dict),
+                                          arg_names=self.arg_names[:], include_resolve_dict=self.include_resolve_dict,
+                                          default_machine=self.default_machine)
+
+
+roslaunch.loader.LoaderContext.child = patched_loader_context_child
+
+roslaunch.main()
