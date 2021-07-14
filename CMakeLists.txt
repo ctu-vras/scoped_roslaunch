@@ -9,5 +9,5 @@ configure_file(scripts/roslaunch ${CATKIN_DEVEL_PREFIX}/${CATKIN_GLOBAL_BIN_DEST
 
 catkin_install_python(PROGRAMS
   scripts/roslaunch
-  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
 )
