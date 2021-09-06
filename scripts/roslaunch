@@ -9,12 +9,14 @@
 # This package also adds default="parent", which means that the machine is set as default in the
 # parent scope. This is useful e.g. when you want to have one file with definitions of all machines
 # and include this file in places where you want to use the machines.
-
+import socket
 from copy import deepcopy
 
 import roslaunch
 import roslaunch.loader
 from roslaunch.xmlloader import XmlLoader
+from roslaunch.core import printlog, printerrlog
+from roslaunch.remoteprocess import SSHChildROSLaunchProcess
 
 roslaunch.xmlloader._is_default = {'true': True, 'scope': False, 'parent': False, 'false': False, 'never': False }
 roslaunch.xmlloader._assignable = {'true': True, 'scope': True, 'parent': True, 'false': True, 'never': False }
@@ -98,5 +100,58 @@ def patched_loader_context_child(self, ns):
 
 
 roslaunch.loader.LoaderContext.child = patched_loader_context_child
+
+
+def patched_is_alive(self):
+    """
+    :returns: ``True`` if the process is alive. is_alive needs to be
+        called periodically as it drains the SSH buffer, ``bool``
+    """
+    if self.started and not self.ssh:
+        return False
+    elif not self.started:
+        return True  # not started is equivalent to alive in our logic
+    s = self.ssherr
+    s.channel.settimeout(0)
+    try:
+        # drain the pipes
+        data = s.read(2048)
+        if not len(data):
+            self.is_dead = True
+            return False
+        # #2012 il8n: ssh *should* be UTF-8, but often isn't
+        # (e.g. Japan)
+        data = data.decode('utf-8')
+        printerrlog("remote[%s]: %s" % (self.name, data))
+    except socket.timeout:
+        pass
+    except IOError:
+        return False
+    except UnicodeDecodeError:
+        # #2012: soft fail, printing is not essential. This occurs
+        # with older machines that don't send utf-8 over ssh
+        pass
+
+    s = self.sshout
+    s.channel.settimeout(0)
+    try:
+        # drain the pipes
+        # TODO: write to log file
+        data = s.read(2048)
+        if not len(data):
+            self.is_dead = True
+            return False
+        # #2012 il8n: ssh *should* be UTF-8, but often isn't
+        # (e.g. Japan)
+        data = data.decode('utf-8')
+        printlog("remote[%s]: %s" % (self.name, data))
+    except socket.timeout:
+        pass
+    except IOError:
+        return False
+    return True
+
+SSHChildROSLaunchProcess.is_alive = patched_is_alive
+
 
 roslaunch.main()
