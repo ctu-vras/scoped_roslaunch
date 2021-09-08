@@ -115,7 +115,7 @@ def patched_is_alive(self):
     s.channel.settimeout(0)
     try:
         # drain the pipes
-        data = s.read(64)
+        data = s.read(512)
         if not len(data):
             self.is_dead = True
             return False
@@ -136,7 +136,7 @@ def patched_is_alive(self):
     s.channel.settimeout(0)
     try:
         # drain the pipes
-        data = s.read(64)
+        data = s.read(512)
         if not len(data):
             self.is_dead = True
             return False
