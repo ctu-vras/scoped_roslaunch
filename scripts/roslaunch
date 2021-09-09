@@ -101,6 +101,8 @@ def patched_loader_context_child(self, ns):
 
 roslaunch.loader.LoaderContext.child = patched_loader_context_child
 
+SSHChildROSLaunchProcess.line_buf_info = ""
+SSHChildROSLaunchProcess.line_buf_err = ""
 
 def patched_is_alive(self):
     """
@@ -115,14 +117,23 @@ def patched_is_alive(self):
     s.channel.settimeout(0)
     try:
         # drain the pipes
-        data = s.read(512)
+        data = s.read(128)
         if not len(data):
             self.is_dead = True
             return False
         # #2012 il8n: ssh *should* be UTF-8, but often isn't
         # (e.g. Japan)
         data = data.decode('utf-8')
-        printerrlog("remote[%s]: %s" % (self.name, data))
+        lines = data.split("\n")
+        if len(lines) > 0:
+            if len(self.line_buf_err) > 0:
+                lines[0] = self.line_buf_err + lines[0]
+                self.line_buf_err = ""
+            if data[-1] != "\n":
+                self.line_buf_err = lines[-1]
+                lines = lines[:-1]
+            for line in lines:
+                printerrlog("remote[%s]: %s" % (self.name, line))
     except socket.timeout:
         pass
     except IOError:
@@ -136,14 +147,23 @@ def patched_is_alive(self):
     s.channel.settimeout(0)
     try:
         # drain the pipes
-        data = s.read(512)
+        data = s.read(128)
         if not len(data):
             self.is_dead = True
             return False
         # #2012 il8n: ssh *should* be UTF-8, but often isn't
         # (e.g. Japan)
         data = data.decode('utf-8')
-        printlog("remote[%s]: %s" % (self.name, data))
+        lines = data.split("\n")
+        if len(lines) > 0:
+            if len(self.line_buf_info) > 0:
+                lines[0] = self.line_buf_info + lines[0]
+                self.line_buf_info = ""
+            if data[-1] != "\n":
+                self.line_buf_info = lines[-1]
+                lines = lines[:-1]
+            for line in lines:
+                printlog("remote[%s]: %s" % (self.name, line))
     except socket.timeout:
         pass
     except IOError:
