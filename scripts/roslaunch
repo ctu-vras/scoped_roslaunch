@@ -9,13 +9,16 @@
 # This package also adds default="parent", which means that the machine is set as default in the
 # parent scope. This is useful e.g. when you want to have one file with definitions of all machines
 # and include this file in places where you want to use the machines.
+from __future__ import print_function
+
 import socket
+import sys
 from copy import deepcopy
 
 import roslaunch
 import roslaunch.loader
 from roslaunch.xmlloader import XmlLoader
-from roslaunch.core import printlog, printerrlog
+from roslaunch.core import printlog, printerrlog, _printerrlog_handlers
 from roslaunch.remoteprocess import SSHChildROSLaunchProcess
 
 roslaunch.xmlloader._is_default = {'true': True, 'scope': False, 'parent': False, 'false': False, 'never': False }
@@ -104,6 +107,23 @@ roslaunch.loader.LoaderContext.child = patched_loader_context_child
 SSHChildROSLaunchProcess.line_buf_info = ""
 SSHChildROSLaunchProcess.line_buf_err = ""
 
+
+def printwarnlog(msg):
+    """
+    Core utility for printing message to stderr as well as printerrlog handlers
+    :param msg: message to print, ``str``
+    """
+    for h in _printerrlog_handlers:
+        try:
+            h(msg)
+        except:
+            pass
+    try:
+        print('\033[33m%s\033[0m' % msg, file=sys.stderr)
+    except:
+        pass
+
+
 def patched_is_alive(self):
     """
     :returns: ``True`` if the process is alive. is_alive needs to be
@@ -133,7 +153,11 @@ def patched_is_alive(self):
                 self.line_buf_err = lines[-1]
                 lines = lines[:-1]
             for line in lines:
-                printerrlog("remote[%s]: %s" % (self.name, line))
+                text = "remote[%s]: %s" % (self.name, line)
+                if line.startswith("[ WARN"):
+                    printwarnlog(text)
+                else:
+                    printerrlog(text)
     except socket.timeout:
         pass
     except IOError:
