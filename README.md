@@ -57,3 +57,11 @@ If used with `default="true"`, `c` would also be launched on the remote machine 
 ```
 
 This setting also launches `a` and `c` on the local machine and `b` and `b2` on machine `b`.
+
+## Remote process stdout transmission and line-buffering
+
+Although a bit unrelated, we also needed to see the output of nodes launched via machine tags.
+Standard roslaunch throws stdout away: https://github.com/ros/ros_comm/issues/1106 .
+
+Using this package, roslaunch is patched to display also stdout of the remotely launched nodes.
+Moreover, it makes some changes to make buffering of the output more streamlined and nicer.
