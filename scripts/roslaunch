@@ -108,18 +108,14 @@ SSHChildROSLaunchProcess.line_buf_info = ""
 SSHChildROSLaunchProcess.line_buf_err = ""
 
 
-def printwarnlog(msg):
-    """
-    Core utility for printing message to stderr as well as printerrlog handlers
-    :param msg: message to print, ``str``
-    """
+def printlog_raw(msg, file=sys.stderr):
     for h in _printerrlog_handlers:
         try:
             h(msg)
         except:
             pass
     try:
-        print('\033[33m%s\033[0m' % msg, file=sys.stderr)
+        print(msg, file=sys.stderr)
     except:
         pass
 
@@ -153,11 +149,10 @@ def patched_is_alive(self):
                 self.line_buf_err = lines[-1]
                 lines = lines[:-1]
             for line in lines:
-                text = "remote[%s]: %s" % (self.name, line)
-                if line.startswith("[ WARN"):
-                    printwarnlog(text)
+                if line.startswith("\033"):
+                    printlog_raw(line[:(5 if line[4] == "m" else 4)] + "remote[%s]:\033[0m %s" % (self.name, line), file=sys.stderr)
                 else:
-                    printerrlog(text)
+                    printerrlog("remote[%s]: %s" % (self.name, line))
     except socket.timeout:
         pass
     except IOError:
@@ -187,7 +182,10 @@ def patched_is_alive(self):
                 self.line_buf_info = lines[-1]
                 lines = lines[:-1]
             for line in lines:
-                printlog("remote[%s]: %s" % (self.name, line))
+                if line.startswith("\033"):
+                    printlog_raw(line[:(5 if line[4] == "m" else 4)] + "remote[%s]:\033[0m %s" % (self.name, line), file=sys.stdout)
+                else:
+                    printerrlog("remote[%s]: %s" % (self.name, line))
     except socket.timeout:
         pass
     except IOError:
