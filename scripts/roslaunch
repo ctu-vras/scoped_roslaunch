@@ -149,7 +149,7 @@ def patched_is_alive(self):
                 self.line_buf_err = lines[-1]
                 lines = lines[:-1]
             for line in lines:
-                if line.startswith("\033"):
+                if line.startswith("\033") and len(line) >= 5:
                     printlog_raw(line[:(5 if line[4] == "m" else 4)] + "remote[%s]:\033[0m %s" % (self.name, line), file=sys.stderr)
                 else:
                     printerrlog("remote[%s]: %s" % (self.name, line))
@@ -182,7 +182,7 @@ def patched_is_alive(self):
                 self.line_buf_info = lines[-1]
                 lines = lines[:-1]
             for line in lines:
-                if line.startswith("\033"):
+                if line.startswith("\033") and len(line) >= 5:
                     printlog_raw(line[:(5 if line[4] == "m" else 4)] + "remote[%s]:\033[0m %s" % (self.name, line), file=sys.stdout)
                 else:
                     printerrlog("remote[%s]: %s" % (self.name, line))
