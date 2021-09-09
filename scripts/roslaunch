@@ -11,6 +11,7 @@
 # and include this file in places where you want to use the machines.
 from __future__ import print_function
 
+import re
 import socket
 import sys
 from copy import deepcopy
@@ -120,6 +121,9 @@ def printlog_raw(msg, file=sys.stderr):
         pass
 
 
+ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+
+
 def patched_is_alive(self):
     """
     :returns: ``True`` if the process is alive. is_alive needs to be
@@ -151,7 +155,7 @@ def patched_is_alive(self):
             for line in lines:
                 if line.startswith("\033") and len(line) >= 5:
                     printlog_raw(line[:(5 if line[4] == "m" else 4)] + "remote[%s]:\033[0m %s" % (self.name, line), file=sys.stderr)
-                elif len(line.strip()) > 0:
+                elif len(ansi_escape.sub('', line).strip()) > 0:
                     printerrlog("remote[%s]: %s" % (self.name, line))
     except socket.timeout:
         pass
@@ -184,7 +188,7 @@ def patched_is_alive(self):
             for line in lines:
                 if line.startswith("\033") and len(line) >= 5:
                     printlog_raw(line[:(5 if line[4] == "m" else 4)] + "remote[%s]:\033[0m %s" % (self.name, line), file=sys.stdout)
-                elif len(line.strip()) > 0:
+                elif len(ansi_escape.sub('', line).strip()) > 0:
                     printerrlog("remote[%s]: %s" % (self.name, line))
     except socket.timeout:
         pass
